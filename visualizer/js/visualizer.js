@@ -489,6 +489,8 @@ const Visualizer = {
         }
         const turns = data[1].split(':');
         for (let i = 0; i < turns.length; i++) {
+            if (turns[i] === '') continue;
+
             const turn = turns[i].split(',');
             const move = {};
 
