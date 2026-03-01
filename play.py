@@ -33,7 +33,7 @@ if __name__ == "__main__":
         "--max_turn_time", action="store", default=1000, type=int,
         help="maximum time (in ms) that a bot can have on its turn.", dest="max_turn_time")
     parser.add_argument(
-        "--max_num_turns", action="store", default=200, type=int,
+        "--max_num_turns", action="store", default=2000, type=int,
         help="maximum number of turns that a game can last.", dest="max_num_turns")
     parser.add_argument(
         "--log_filename", action="store", default="", type=str,

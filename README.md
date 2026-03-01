@@ -1,48 +1,143 @@
-Planet Wars Starter Package
-===========================
+# 🪐 Planet Wars Arena
 
-**Summary:** <sub>
-[![GitHub last commit](https://img.shields.io/github/last-commit/xtevenx/planet-wars-starterpackage?logo=github)](https://github.com/xtevenx/planet-wars-starterpackage/commits/master)
-[![GitHub code size in bytes](https://img.shields.io/github/repo-size/xtevenx/planet-wars-starterpackage?logo=github)](https://github.com/xtevenx/planet-wars-starterpackage)
-[![GitHub language count](https://img.shields.io/github/languages/count/xtevenx/planet-wars-starterpackage?logo=github)](https://github.com/xtevenx/planet-wars-starterpackage)
-[![GitHub top language](https://img.shields.io/github/languages/top/xtevenx/planet-wars-starterpackage?logo=java&logoColor=red)](https://github.com/xtevenx/planet-wars-starterpackage/search?l=java)
-[![GitHub](https://img.shields.io/github/license/xtevenx/planet-wars-starterpackage?logo=open-source-initiative&logoColor=white)](https://github.com/xtevenx/planet-wars-starterpackage/blob/master/LICENSE.md)
-</sub>
+A multiplayer bot competition platform for the classic [Planet Wars](https://planetwars.aichallenge.org/) strategy game. Upload Python bots on the website, then battle them against each other — all games run locally on your machine.
 
-***
+---
 
-Note: This challenge has been over for almost a decade; why are you still looking at it?
+## Quick Start — Playing Games
 
-This repository contains a round-up of all you need to start the 2010 Google AI Challenge Planet Wars (hereinafter 
-Planet Wars Challenge) originally run by the University of Waterloo.
+### 1. Clone the repo
 
-Getting Started
----------------
+```bash
+git clone https://github.com/YOUR_USERNAME/planet-wars-starterpackage.git
+cd planet-wars-starterpackage
+```
 
-Under `starterbots/` are slimmed down versions of the official starter packages for C++, C#, Java and Python.
+### 2. Start the local runner
 
-Pick your language of choice and copy the contents to the root folder.
-What you have is a bot with a very basic strategy.
-Look at the file `MyBot.*` (different file extensions depending on programming language) to understand the basic 
-strategy of the bot and how communication with the game engine works.
+```bash
+cd local_runner
+pip install -r requirements.txt
+python server.py
+```
 
-Look at `SPECIFICATION.md` for the official specifications of the game.
+Keep this terminal open. The local runner listens on `http://localhost:3737` and executes games when triggered from the website.
 
-### Playing Games
+**Requirements:** Python 3.8+, Java JRE 8+
 
-Included in this starter package are two game playing scripts.
+### 3. Go to the website
 
-*  `play.py` for playing an individual game from a randomly generated map and viewing it.
-*  `play_multiple.py` for playing multiple games on multiple randomly generated maps.
+Open [your-app.vercel.app](https://your-app.vercel.app) (or `http://localhost:3000` for local dev), upload your bot, select two bots, and click **Start Game**.
 
-Note on Licensing
------------------
+---
 
-*   The files in `example_bots/`, `maps/`, `starterbots/` and `tools/` and the file `SPECIFICATION.md` were originally 
-    released under the Apache License for the Planet Wars Challenge.
-*   The files in `starterbots/python_starterbot/` have been edited.
-*   The files in `visualizer/` are from the Planet Wars Challenge (released under the Apache License) and have been 
-    edited.
-*   The file `visualizer/css/Hyades.jpg` is released under the Attribution-ShareAlike Version 2.5 Generic License.
-*   The remainder of the files are released under the GNU General Public License Version 3. See `LICENSE.md` for more 
-    information
+## Writing a Bot
+
+Copy `starterbots/python_starterbot/MyBot.py` to the repo root and edit the `DoTurn` function:
+
+```python
+from PlanetWars import PlanetWars
+
+def DoTurn(pw):
+    my_planets = pw.MyPlanets()
+    enemy_planets = pw.EnemyPlanets()
+    # Your strategy here — issue orders with pw.IssueOrder(src, dst, ships)
+
+def main():
+    map_data = ''
+    while True:
+        current_line = input()
+        if current_line.startswith('go'):
+            pw = PlanetWars(map_data)
+            DoTurn(pw)
+            pw.FinishTurn()
+            map_data = ''
+        else:
+            map_data += current_line + '\n'
+
+if __name__ == '__main__':
+    main()
+```
+
+See [`SPECIFICATION.md`](SPECIFICATION.md) for full game rules and the `PlanetWars` API.
+
+### Test locally without the website
+
+```bash
+python play.py MyBot.py AdamBot.py
+```
+
+---
+
+## Website Setup (for contributors/self-hosting)
+
+### Prerequisites
+
+- [Vercel account](https://vercel.com) — free tier works
+- GitHub repo connected to Vercel
+
+### 1. Create a Vercel Blob store
+
+In the Vercel dashboard: **Storage → Create → Blob store**. Copy the `BLOB_READ_WRITE_TOKEN`.
+
+### 2. Configure environment variables
+
+Copy `web/.env.local.example` to `web/.env.local` and fill in:
+
+```bash
+BLOB_READ_WRITE_TOKEN=vercel_blob_rw_...
+NEXT_PUBLIC_SITE_URL=https://your-app.vercel.app
+```
+
+### 3. Connect GitHub to Vercel
+
+In Vercel: **New Project → Import Git Repository → your repo**. Set:
+- Root directory: `web`
+- Add the `BLOB_READ_WRITE_TOKEN` environment variable
+
+### 4. Add GitHub Actions secrets
+
+For automatic deployments on push, add these secrets to your GitHub repo (**Settings → Secrets → Actions**):
+
+| Secret | Where to find it |
+|--------|-----------------|
+| `VERCEL_TOKEN` | Vercel → Account Settings → Tokens |
+| `VERCEL_ORG_ID` | Vercel project `.vercel/project.json` → `orgId` |
+| `VERCEL_PROJECT_ID` | Vercel project `.vercel/project.json` → `projectId` |
+
+### 5. Run locally
+
+```bash
+cd web
+npm install
+npm run dev  # opens at http://localhost:3000
+```
+
+---
+
+## Project Structure
+
+```
+planet-wars-starterpackage/
+├── web/                    # Next.js website (deployed to Vercel)
+│   ├── pages/              # Routes: /, /upload, /setup, /api/bots
+│   ├── components/         # BotList, GameVisualizer
+│   └── public/visualizer/  # Static game visualizer assets
+├── local_runner/           # Flask server (run on your machine)
+│   └── server.py           # Listens on :3737, runs games
+├── tools/                  # Game engine (PlayGame-1.2.jar, map generator)
+├── starterbots/            # Starter bot templates
+├── visualizer/             # HTML5 game visualizer
+├── PlanetWars.py           # Game state library for bots
+├── play.py                 # Run a game locally (CLI)
+└── play_multiple.py        # Run a tournament locally (CLI)
+```
+
+---
+
+## Licensing
+
+- `example_bots/`, `maps/`, `starterbots/`, `tools/`, `SPECIFICATION.md` — Apache License (Planet Wars Challenge)
+- `visualizer/` — Apache License (edited)
+- `visualizer/css/Hyades.jpg` — CC Attribution-ShareAlike 2.5
+- Everything else — GNU GPL v3 (see `LICENSE.md`)
