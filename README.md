@@ -17,6 +17,13 @@ pip install -r requirements.txt
 python server.py
 ```
 
+Works best with [uv](https://github.com/astral-sh/uv):
+
+```bash
+uv venv && uv pip install -r requirements.txt
+.venv/bin/python server.py
+```
+
 Then open the website, upload your bot, and start a game.
 
 > **Chrome users:** when the site asks for permission to access your local network, click Allow.
