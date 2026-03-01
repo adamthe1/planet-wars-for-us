@@ -17,8 +17,9 @@ cd planet-wars-starterpackage
 
 ```bash
 cd local_runner
-pip install -r requirements.txt
-python server.py
+uv venv
+uv pip install -r requirements.txt
+.venv/bin/python server.py
 ```
 
 Keep this terminal open. The local runner listens on `http://localhost:3737` and executes games when triggered from the website.

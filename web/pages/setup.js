@@ -85,7 +85,30 @@ pip install -r requirements.txt`}</Code>
         </p>
       </Step>
 
-      <Step n="4" title="Come back here and start a game">
+      <Step n="4" title="Allow Chrome to access your local runner">
+        <p style={{ color: '#888', fontSize: 14, margin: '0 0 10px' }}>
+          Chrome blocks websites from accessing localhost by default. When you first visit the arena,
+          Chrome will show a permission prompt — click <strong style={{ color: '#ddd' }}>Allow</strong>.
+        </p>
+        <div style={{
+          background: '#0a0a0a',
+          border: '1px solid #2a2a2a',
+          borderRadius: 6,
+          padding: '12px 16px',
+          fontSize: 13,
+          color: '#888',
+          lineHeight: 1.8,
+        }}>
+          <div style={{ marginBottom: 6 }}>If you missed the prompt or see the runner as offline:</div>
+          <ol style={{ margin: 0, paddingLeft: 18 }}>
+            <li>Click the <strong style={{ color: '#ddd' }}>lock / info icon</strong> in Chrome&apos;s address bar</li>
+            <li>Find <strong style={{ color: '#ddd' }}>Local network access</strong> → set to <strong style={{ color: '#4caf50' }}>Allow</strong></li>
+            <li>Reload the page and hit Retry</li>
+          </ol>
+        </div>
+      </Step>
+
+      <Step n="5" title="Come back here and start a game">
         <p style={{ color: '#888', fontSize: 14, margin: 0 }}>
           The green banner on the home page will confirm the runner is online.
         </p>

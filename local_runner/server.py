@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 import platform
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 
 # Add repo root to path so we can import tools
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -15,34 +15,72 @@ import tools.map_generator_v2 as map_generator
 
 app = Flask(__name__)
 
-JAR_PATH = os.path.join(REPO_ROOT, "tools", "PlayGame-1.2.jar")
-PLANET_WARS_PY = os.path.join(REPO_ROOT, "PlanetWars.py")
-PYTHON = "python" if platform.system() == "Windows" else "python3"
 
-ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-]
+def _determine_winner(data_string):
+    """Parse the last turn of the playback string and count ships per player."""
+    try:
+        parts = data_string.split('|')
+        if len(parts) < 2:
+            return 'unknown'
 
+        num_planets = len(parts[0].split(':'))
+        turns = [t for t in parts[1].split(':') if t]
+        if not turns:
+            return 'unknown'
 
-def _cors_headers(origin):
-    headers = {}
-    if origin and (
-        origin.endswith(".vercel.app")
-        or "localhost" in origin
-    ):
-        headers["Access-Control-Allow-Origin"] = origin
-        headers["Access-Control-Allow-Headers"] = "Content-Type"
-        headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    return headers
+        last_turn = turns[-1]
+        cells = last_turn.split(',')
+
+        ships = {1: 0, 2: 0}
+
+        # First num_planets cells are planet states: owner.numShips
+        for cell in cells[:num_planets]:
+            state = cell.split('.')
+            if len(state) >= 2:
+                owner, count = int(state[0]), int(state[1])
+                if owner in ships:
+                    ships[owner] += count
+
+        # Remaining cells are fleets: owner.numShips.src.dst.trip.remaining
+        for cell in cells[num_planets:]:
+            fleet = cell.split('.')
+            if len(fleet) >= 2:
+                owner, count = int(fleet[0]), int(fleet[1])
+                if owner in ships:
+                    ships[owner] += count
+
+        if ships[1] > ships[2]:
+            return '1'
+        elif ships[2] > ships[1]:
+            return '2'
+        else:
+            return 'draw'
+    except Exception:
+        return 'unknown'
 
 
 @app.after_request
 def add_cors(response):
-    origin = request.headers.get("Origin", "")
-    for k, v in _cors_headers(origin).items():
-        response.headers[k] = v
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    response.headers['Access-Control-Allow-Private-Network'] = 'true'
     return response
+
+
+@app.before_request
+def handle_preflight():
+    if request.method == 'OPTIONS':
+        resp = make_response()
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        resp.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        resp.headers['Access-Control-Allow-Private-Network'] = 'true'
+        return resp, 200
+
+JAR_PATH = os.path.join(REPO_ROOT, "tools", "PlayGame-1.2.jar")
+PLANET_WARS_PY = os.path.join(REPO_ROOT, "PlanetWars.py")
+PYTHON = "python" if platform.system() == "Windows" else "python3"
 
 
 @app.route("/health", methods=["GET", "OPTIONS"])
@@ -87,18 +125,14 @@ def run_game():
         map_generator.save_map(map_path)
 
         # Run the Java game engine, capturing stdout (the playback string)
-        cmd = [
-            "java", "-jar", JAR_PATH,
-            map_path,
-            str(max_turn_time),
-            str(max_num_turns),
-            "",  # empty log filename
-            f"{PYTHON} {bot1_path}",
-            f"{PYTHON} {bot2_path}",
-        ]
+        cmd = (
+            f'java -jar "{JAR_PATH}" "{map_path}" {max_turn_time} {max_num_turns}'
+            f' "" "{PYTHON} {bot1_path}" "{PYTHON} {bot2_path}"'
+        )
 
         result = subprocess.run(
             cmd,
+            shell=True,
             capture_output=True,
             text=True,
             timeout=120,
@@ -113,19 +147,23 @@ def run_game():
                 "detail": result.stderr[:2000],
             }), 500
 
-        # Parse winner/player names from the structured output
-        parsed = {}
-        for line in playback_string.split("\n"):
-            if "=" in line:
-                key, _, value = line.partition("=")
-                parsed[key.strip()] = value.strip()
+        # The Java engine outputs raw game data as a single line.
+        # Wrap it in the multi-line format the visualizer expects for player names.
+        raw_game_data = playback_string
+        formatted = (
+            f"player_one={bot1_name}\n"
+            f"player_two={bot2_name}\n"
+            f"playback_string={raw_game_data}"
+        )
+
+        winner = _determine_winner(raw_game_data)
 
         return jsonify({
             "success": True,
-            "playback_string": playback_string,
-            "player_one": parsed.get("player_one", bot1_name),
-            "player_two": parsed.get("player_two", bot2_name),
-            "winner": parsed.get("winner", "unknown"),
+            "playback_string": formatted,
+            "player_one": bot1_name,
+            "player_two": bot2_name,
+            "winner": winner,
         })
 
     except subprocess.TimeoutExpired:
